@@ -112,7 +112,6 @@ class BaseFormSet:
         # if i >= self.initial_form_count() and i >= self.min_num:
         #     defaults['empty_permitted'] = True
         defaults.update(kwargs)
-        print(f"CONSTRUCTING FORM {i} with {defaults}")
         form = self.base_forms[i](**defaults)
         # self.add_fields(form, i)
         return form
