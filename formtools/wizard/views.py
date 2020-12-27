@@ -13,6 +13,7 @@ from django.views.generic import TemplateView
 from .forms import ManagementForm
 from .storage import get_storage
 from .storage.exceptions import NoFileStorageConfigured
+from .. import formset_extra
 
 
 def normalize_name(name):
@@ -122,6 +123,17 @@ class WizardView(TemplateView):
         return super().as_view(**initkwargs)
 
     @classmethod
+    def _check_storage(cls, form):
+        for field in form.base_fields.values():
+            if (isinstance(field, forms.FileField) and
+                    not hasattr(cls, 'file_storage')):
+                raise NoFileStorageConfigured(
+                    "You need to define 'file_storage' in your "
+                    "wizard view in order to handle file uploads."
+                )
+
+
+    @classmethod
     def get_initkwargs(cls, form_list=None, initial_dict=None, instance_dict=None,
                        condition_dict=None, *args, **kwargs):
         """
@@ -179,19 +191,14 @@ class WizardView(TemplateView):
 
         # walk through the new created list of forms
         for form in computed_form_list.values():
-            if issubclass(form, formsets.BaseFormSet):
+            if issubclass(form, (formsets.BaseFormSet, formset_extra.BaseFormSet)):
                 # if the element is based on BaseFormSet (FormSet/ModelFormSet)
                 # we need to override the form variable.
-                form = form.form
+                for form in form.base_forms:
+                    cls._check_storage(form)
             # check if any form contains a FileField, if yes, we need a
             # file_storage added to the wizardview (by subclassing).
-            for field in form.base_fields.values():
-                if (isinstance(field, forms.FileField) and
-                        not hasattr(cls, 'file_storage')):
-                    raise NoFileStorageConfigured(
-                        "You need to define 'file_storage' in your "
-                        "wizard view in order to handle file uploads."
-                    )
+            cls._check_storage(form)
 
         # build the kwargs for the wizardview instances
         kwargs['form_list'] = computed_form_list
