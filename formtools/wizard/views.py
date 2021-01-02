@@ -124,14 +124,16 @@ class WizardView(TemplateView):
 
     @classmethod
     def _check_storage(cls, form):
-        for field in form.base_fields.values():
-            if (isinstance(field, forms.FileField) and
-                    not hasattr(cls, 'file_storage')):
-                raise NoFileStorageConfigured(
-                    "You need to define 'file_storage' in your "
-                    "wizard view in order to handle file uploads."
-                )
-
+        try:
+            for field in form.base_fields.values():
+                if (isinstance(field, forms.FileField) and
+                        not hasattr(cls, 'file_storage')):
+                    raise NoFileStorageConfigured(
+                        "You need to define 'file_storage' in your "
+                        "wizard view in order to handle file uploads."
+                    )
+        except Exception as e:
+            print("WARNING: failed checking for storage", e)
 
     @classmethod
     def get_initkwargs(cls, form_list=None, initial_dict=None, instance_dict=None,
@@ -158,16 +160,20 @@ class WizardView(TemplateView):
           will be called with the wizardview instance as the only argument.
           If the return value is true, the step's form will be used.
         """
+
+        def make_str_dict(cond_dict):
+            return {str(k): v for k, v in cond_dict.items()}
+
         kwargs.update({
-            'initial_dict': (
+            'initial_dict': make_str_dict(
                 initial_dict or
                 kwargs.pop('initial_dict', getattr(cls, 'initial_dict', None)) or {}
             ),
-            'instance_dict': (
+            'instance_dict': make_str_dict(
                 instance_dict or
                 kwargs.pop('instance_dict', getattr(cls, 'instance_dict', None)) or {}
             ),
-            'condition_dict': (
+            'condition_dict': make_str_dict(
                 condition_dict or
                 kwargs.pop('condition_dict', getattr(cls, 'condition_dict', None)) or {}
             )
@@ -194,8 +200,9 @@ class WizardView(TemplateView):
             if issubclass(form, (formsets.BaseFormSet, formset_extra.BaseFormSet)):
                 # if the element is based on BaseFormSet (FormSet/ModelFormSet)
                 # we need to override the form variable.
-                for form in form.base_forms:
-                    cls._check_storage(form)
+                # for form in form.base_forms:
+                #     cls._check_storage(form)
+                pass
             # check if any form contains a FileField, if yes, we need a
             # file_storage added to the wizardview (by subclassing).
             cls._check_storage(form)
@@ -223,6 +230,7 @@ class WizardView(TemplateView):
         for form_key, form_class in self.form_list.items():
             # try to fetch the value from condition list, by default, the form
             # gets passed to the new list.
+
             condition = self.condition_dict.get(form_key, True)
             if callable(condition):
                 # call the value if needed, passes the current instance.
